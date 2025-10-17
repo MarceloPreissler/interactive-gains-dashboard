@@ -1,0 +1,2934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TXU Mass Portfolio Gains Dashboard - Interactive</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+        
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            padding-right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            min-height: 80px;
+        }
+        
+        .header-info {
+            flex: 1;
+        }
+        
+        .dashboard-title {
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        
+        @media (max-width: 1200px) {
+            .dashboard-title {
+                font-size: 20px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-title {
+                font-size: 18px;
+            }
+        }
+        
+        .date-range {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .date-range {
+                font-size: 12px;
+            }
+        }
+        
+        .upload-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        
+        .upload-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .upload-area {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 8px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            height: 36px;
+        }
+        
+        .upload-area:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .upload-area.dragover {
+            background: rgba(255, 255, 255, 0.35);
+            border-color: #ffffff;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+        }
+        
+        .upload-area.processing {
+            background: rgba(245, 158, 11, 0.25);
+            border-color: rgba(245, 158, 11, 0.5);
+            pointer-events: none;
+        }
+        
+        .upload-area.processing .upload-icon {
+            animation: spin 1s linear infinite;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 16px;
+            color: white;
+            transition: transform 0.3s ease;
+        }
+        
+        .upload-area:hover .upload-icon {
+            transform: translateY(-2px);
+        }
+        
+        .upload-text {
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .file-status {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            display: none;
+            animation: slideIn 0.3s ease;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-success {
+            background: rgba(16, 185, 129, 0.25);
+            color: #a7f3d0;
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-error {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-loading {
+            background: rgba(245, 158, 11, 0.25);
+            color: #fde68a;
+            border: 1px solid rgba(245, 158, 11, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        
+        .template-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+            height: 36px;
+        }
+        
+        .template-download:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tab-navigation {
+            background: #2d3748;
+            padding: 0;
+            display: flex;
+            border-bottom: 3px solid #4a5568;
+            overflow-x: auto;
+        }
+        
+        .tab-button {
+            background: none;
+            border: none;
+            color: #cbd5e0;
+            padding: 15px 25px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+        
+        .tab-button:hover {
+            background: #374151;
+            color: white;
+        }
+        
+        .tab-button.active {
+            background: #4a5568;
+            color: white;
+        }
+        
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #10b981;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .kpi-card {
+            background: #1a202c;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .kpi-card.updating {
+            animation: pulse 1s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .kpi-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .kpi-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .kpi-change {
+            font-size: 14px;
+        }
+        
+        .kpi-change.positive {
+            color: #10b981;
+        }
+        
+        .kpi-change.negative {
+            color: #ef4444;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 1100px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1f2937;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 30px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            color: #1f2937;
+        }
+        
+        .insight-box {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        
+        .insight-box h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .insight-box p {
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .insight-box ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .insight-box li {
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.6;
+            margin-bottom: 6px;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .data-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .data-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .data-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s ease;
+        }
+        
+        .data-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        .data-table td {
+            padding: 10px 15px;
+            font-size: 14px;
+        }
+        
+        .data-table .subtotal {
+            background: #e5e7eb;
+            font-weight: 600;
+        }
+        
+        .data-table .grand-total {
+            background: #d1d5db;
+            font-weight: bold;
+        }
+        
+        .data-table .combination-group {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        
+        .positive {
+            color: #10b981;
+        }
+        
+        .negative {
+            color: #ef4444;
+        }
+        
+        .proration-toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .proration-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e0;
+            transition: .3s;
+            border-radius: 28px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .toggle-status {
+            font-size: 13px;
+            color: #6b7280;
+            min-width: 100px;
+        }
+        
+        .toggle-status.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f4f6;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .header-info {
+                max-width: 100%;
+                text-align: center;
+            }
+            
+            .upload-section {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .tab-content {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="header-info">
+                <h1 class="dashboard-title">TXU Mass Portfolio Performance | Gains Dashboard</h1>
+                <p class="date-range" id="dateRange">Through August 2025</p>
+            </div>
+            
+            <div class="upload-section">
+                <div class="upload-container">
+                    <div class="upload-area" id="uploadArea" title="Click or drag to upload CSV/Excel/JSON data" tabindex="0" role="button" aria-label="Upload data file">
+                        <input type="file" id="fileInput" class="file-input" accept=".csv,.json,.xlsx,.xls" aria-label="File input">
+                        <div class="upload-icon">📊</div>
+                        <div class="upload-text">Upload Data</div>
+                    </div>
+                    <a href="javascript:void(0);" class="template-download" onclick="downloadTemplate(event)" title="Download CSV template with sample data" aria-label="Download template">
+                        <span>📥</span>
+                        <span>Template</span>
+                    </a>
+                    <div id="fileStatus" class="file-status" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-navigation">
+            <button class="tab-button active" onclick="showTab('ytd')">Tab 1: YTD Summary</button>
+            <button class="tab-button" onclick="showTab('current')">Tab 2: Current Month Gains</button>
+            <button class="tab-button" onclick="showTab('losses')">Tab 3: Current Month Losses</button>
+            <button class="tab-button" onclick="showTab('monthly')">Tab 4: Monthly Performance</button>
+            <button class="tab-button" onclick="showTab('historical')">Tab 5: Historical Actuals</button>
+            <button class="tab-button" onclick="showTab('analysis')">Tab 6: Analysis</button>
+        </div>
+        
+        <!-- Tab 1: Year-to-Date Summary -->
+        <div id="ytd" class="tab-content active">
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <div class="kpi-label">YTD Gains</div>
+                    <div class="kpi-value" id="ytdGains">--</div>
+                    <div class="kpi-change">Actual</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Plan</div>
+                    <div class="kpi-value" id="ytdPlan">--</div>
+                    <div class="kpi-change" id="planVariance">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">vs Prior Year</div>
+                    <div class="kpi-value" id="ytdPriorYear">--</div>
+                    <div class="kpi-change" id="priorYearVariance">--</div>
+                </div>
+            </div>
+            
+            <div class="proration-toggle-container">
+                <span class="proration-label">Pro-rate YTD Plan & Prior Year:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="ytdProrationToggle" onchange="toggleYTDProration()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-status" id="ytdToggleStatus">Full Months</span>
+            </div>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">YTD Performance by Meter Type</div>
+                    <canvas id="ytdChannelChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">YTD Performance by Product Group</div>
+                    <canvas id="ytdDistributionChart"></canvas>
+                </div>
+            </div>
+            
+            <section>
+                <h2 class="section-title">Gains by Channel</h2>
+                <table class="data-table" id="channelTable">
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>YTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Gains by Meter Type</h2>
+                <table class="data-table" id="meterTable">
+                    <thead>
+                        <tr>
+                            <th>Meter Type</th>
+                            <th>YTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Gains by Product Group</h2>
+                <table class="data-table" id="productTable">
+                    <thead>
+                        <tr>
+                            <th>Product Group</th>
+                            <th>YTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+        
+        <!-- Tab 2: Current Month Performance -->
+        <div id="current" class="tab-content">
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <div class="kpi-label">MTD Gains</div>
+                    <div class="kpi-value" id="mtdGains">--</div>
+                    <div class="kpi-change" id="mtdDays">-- days</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Plan</div>
+                    <div class="kpi-value" id="mtdPlan">--</div>
+                    <div class="kpi-change" id="mtdTracking">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">vs Prior Year</div>
+                    <div class="kpi-value" id="mtdPriorYear">--</div>
+                    <div class="kpi-change" id="mtdPriorYearVariance">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Daily Average</div>
+                    <div class="kpi-value" id="dailyAvg">--</div>
+                    <div class="kpi-change">gains/day</div>
+                </div>
+            </div>
+            
+            <div class="proration-toggle-container">
+                <span class="proration-label">Pro-rate Plan & Prior Year:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="prorationToggle" onchange="toggleProration()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-status" id="toggleStatus">Full Month</span>
+            </div>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Current Month Performance by Meter Type</div>
+                    <canvas id="currentChannelChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Current Month Performance by Product Group</div>
+                    <canvas id="currentProductChart"></canvas>
+                </div>
+            </div>
+            
+            <section>
+                <h2 class="section-title">Current Month Gains by Channel</h2>
+                <table class="data-table" id="currentChannelTable">
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>MTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Current Month Gains by Meter Type</h2>
+                <table class="data-table" id="currentMeterTable">
+                    <thead>
+                        <tr>
+                            <th>Meter Type</th>
+                            <th>MTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Current Month Gains by Product Group</h2>
+                <table class="data-table" id="currentProductTable">
+                    <thead>
+                        <tr>
+                            <th>Product Group</th>
+                            <th>MTD Gains</th>
+                            <th>Plan</th>
+                            <th>vs Plan</th>
+                            <th>vs Plan %</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+        
+        <!-- Tab 3: Current Month Losses -->
+        <div id="losses" class="tab-content">
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <div class="kpi-label">MTD Losses</div>
+                    <div class="kpi-value" id="mtdLosses">--</div>
+                    <div class="kpi-change" id="mtdLossesDays">-- days</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Net (Gains - Losses)</div>
+                    <div class="kpi-value" id="mtdNet">--</div>
+                    <div class="kpi-change" id="mtdNetInfo">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">vs Prior Year</div>
+                    <div class="kpi-value" id="mtdLossesPriorYear">--</div>
+                    <div class="kpi-change" id="mtdLossesPriorYearVariance">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Net Daily Average</div>
+                    <div class="kpi-value" id="dailyNetAvg">--</div>
+                    <div class="kpi-change" id="dailyNetComparison">--</div>
+                </div>
+            </div>
+            
+            <div class="proration-toggle-container">
+                <span class="proration-label">Pro-rate Prior Year:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="lossesProrationToggle" onchange="toggleLossesProration()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-status" id="lossesToggleStatus">Full Month</span>
+            </div>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Gains vs Losses by Meter Type</div>
+                    <canvas id="lossesChannelChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Net Performance by Product Group</div>
+                    <canvas id="lossesProductChart"></canvas>
+                </div>
+            </div>
+            
+            <section>
+                <h2 class="section-title">Current Month Losses by Channel</h2>
+                <table class="data-table" id="lossesChannelTable">
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>MTD Losses</th>
+                            <th>Net</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Current Month Losses by Meter Type</h2>
+                <table class="data-table" id="lossesMeterTable">
+                    <thead>
+                        <tr>
+                            <th>Meter Type</th>
+                            <th>MTD Losses</th>
+                            <th>Net</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Current Month Losses by Product Group</h2>
+                <table class="data-table" id="lossesProductTable">
+                    <thead>
+                        <tr>
+                            <th>Product Group</th>
+                            <th>MTD Losses</th>
+                            <th>Net</th>
+                            <th>Prior Year</th>
+                            <th>vs Prior Year</th>
+                            <th>vs Prior Year %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+        
+        <!-- Tab 4: Monthly Performance -->
+        <div id="monthly" class="tab-content">
+            <div class="proration-toggle-container">
+                <span class="proration-label">Pro-rate Current Month Plan & Prior Year:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="monthlyProrationToggle" onchange="toggleMonthlyProration()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-status" id="monthlyToggleStatus">Full Month</span>
+            </div>
+            
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <div class="chart-title">Monthly Gains Trend</div>
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+            
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <div class="chart-title">Monthly Net Performance (Gains - Losses)</div>
+                <canvas id="monthlyNetChart"></canvas>
+            </div>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Cumulative Gains & Losses (Current vs Prior Year)</div>
+                    <canvas id="cumulativeGainsLossesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Cumulative Performance vs Plan</div>
+                    <canvas id="cumulativeVsPlanChart"></canvas>
+                </div>
+            </div>
+            
+            <section>
+                <h2 class="section-title">Monthly Gains Performance (Current Year)</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="monthlyTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 150px;">Metric</th>
+                                <th>Jan</th>
+                                <th>Feb</th>
+                                <th>Mar</th>
+                                <th>Apr</th>
+                                <th>May</th>
+                                <th>Jun</th>
+                                <th>Jul</th>
+                                <th>Aug</th>
+                                <th>Sep</th>
+                                <th>Oct</th>
+                                <th>Nov</th>
+                                <th>Dec</th>
+                                <th style="min-width: 100px;">YTD Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="14" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <section>
+                <h2 class="section-title">Monthly Performance by Product Group</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="monthlyProductTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 150px;">Product Group / Metric</th>
+                                <th>Jan</th>
+                                <th>Feb</th>
+                                <th>Mar</th>
+                                <th>Apr</th>
+                                <th>May</th>
+                                <th>Jun</th>
+                                <th>Jul</th>
+                                <th>Aug</th>
+                                <th>Sep</th>
+                                <th>Oct</th>
+                                <th>Nov</th>
+                                <th>Dec</th>
+                                <th style="min-width: 100px;">YTD Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="14" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Net - MTM Product Group</div>
+                    <canvas id="monthlyNetMTMChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Net - TERM Product Group</div>
+                    <canvas id="monthlyNetTERMChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Net - BUS Meter Type</div>
+                    <canvas id="monthlyNetBUSChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Net - RES Meter Type</div>
+                    <canvas id="monthlyNetRESChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab 5: Historical Actuals -->
+        <div id="historical" class="tab-content">
+            <div class="proration-toggle-container">
+                <span class="proration-label">Pro-rate Current Month Actuals:</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="historicalProrationToggle" onchange="toggleHistoricalProration()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-status" id="historicalToggleStatus">Full Month</span>
+            </div>
+            
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <div class="chart-title">Historical Performance by Channel</div>
+                <canvas id="historicalChart"></canvas>
+            </div>
+            
+            <h2 class="section-title">Historical Channel Performance Detail</h2>
+            
+            <section>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="historicalTable">
+                        <thead>
+                            <tr>
+                                <th colspan="2" id="historicalYearHeader">2025</th>
+                                <th>Jan</th>
+                                <th>Feb</th>
+                                <th>Mar</th>
+                                <th>Apr</th>
+                                <th>May</th>
+                                <th>Jun</th>
+                                <th>Jul</th>
+                                <th>Aug</th>
+                                <th>Sep</th>
+                                <th>Oct</th>
+                                <th>Nov</th>
+                                <th>Dec</th>
+                                <th>Total</th>
+                            </tr>
+                            <tr>
+                                <th>Channel</th>
+                                <th>Metric</th>
+                                <th colspan="13"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="15" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Tab 6: Analysis -->
+        <div id="analysis" class="tab-content">
+            <div class="insight-box">
+                <h3>Analysis Overview</h3>
+                <p>This section provides comprehensive performance analysis comparing current year net performance against prior year across channels, and examines the historical net performance trends for each meter type and product group combination to identify key performance drivers and areas for strategic focus.</p>
+            </div>
+            
+            <h2 class="section-title">Monthly Net Performance by Channel: Year-over-Year Comparison</h2>
+            
+            <div class="chart-container" style="margin-bottom: 30px;">
+                <div class="chart-title">Channel Net Performance Trend</div>
+                <canvas id="analysisChannelChart"></canvas>
+            </div>
+            
+            <section>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="analysisChannelTable">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="min-width: 120px;">Channel</th>
+                                <th rowspan="2" style="min-width: 80px;">Year</th>
+                                <th>Jan</th>
+                                <th>Feb</th>
+                                <th>Mar</th>
+                                <th>Apr</th>
+                                <th>May</th>
+                                <th>Jun</th>
+                                <th>Jul</th>
+                                <th>Aug</th>
+                                <th>Sep</th>
+                                <th>Oct</th>
+                                <th>Nov</th>
+                                <th>Dec</th>
+                                <th style="min-width: 100px;">YTD Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="15" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <div id="channelInsights" class="insight-box" style="margin-top: 30px;">
+                <h3>Channel Performance Insights</h3>
+                <p>Analysis will appear here after data is loaded.</p>
+            </div>
+            
+            <h2 class="section-title">Meter Type × Product Group Historical Net Performance</h2>
+            
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Net Performance by Combination (YTD)</div>
+                    <canvas id="analysisCombinationChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">YoY Net Change by Combination</div>
+                    <canvas id="analysisYoYChart"></canvas>
+                </div>
+            </div>
+            
+            <section>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="analysisCombinationTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 100px;">Meter Type</th>
+                                <th style="min-width: 120px;">Product Group</th>
+                                <th>Jan</th>
+                                <th>Feb</th>
+                                <th>Mar</th>
+                                <th>Apr</th>
+                                <th>May</th>
+                                <th>Jun</th>
+                                <th>Jul</th>
+                                <th>Aug</th>
+                                <th>Sep</th>
+                                <th>Oct</th>
+                                <th>Nov</th>
+                                <th>Dec</th>
+                                <th style="min-width: 100px;">YTD Net</th>
+                                <th style="min-width: 120px;">YTD vs Prior Year</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="15" style="text-align: center; color: #9ca3af;">No data loaded. Please upload a file.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <div id="combinationInsights" class="insight-box" style="margin-top: 30px;">
+                <h3>Combination Performance Insights</h3>
+                <p>Analysis will appear here after data is loaded.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script>
+        let dashboardData = null;
+        let prorationEnabled = false;
+        let lossesProrationEnabled = false;
+        let ytdProrationEnabled = false;
+        let monthlyProrationEnabled = false;
+        let historicalProrationEnabled = false;
+        
+        let ytdChannelChart = null;
+        let ytdDistributionChart = null;
+        let currentChannelChart = null;
+        let currentProductChart = null;
+        let lossesChannelChart = null;
+        let lossesProductChart = null;
+        let monthlyTrendChart = null;
+        let monthlyNetChart = null;
+        let cumulativeGainsLossesChart = null;
+        let cumulativeVsPlanChart = null;
+        let monthlyNetMTMChart = null;
+        let monthlyNetTERMChart = null;
+        let monthlyNetBUSChart = null;
+        let monthlyNetRESChart = null;
+        let historicalChart = null;
+        let analysisChannelChart = null;
+        let analysisCombinationChart = null;
+        let analysisYoYChart = null;
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileStatus = document.getElementById('fileStatus');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            const file = files[0];
+            const fileName = file.name.toLowerCase();
+            if (!fileName.endsWith('.csv') && !fileName.endsWith('.json') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+                showStatus('Please upload a CSV, Excel, or JSON file', 'error');
+                return;
+            }
+            uploadArea.classList.add('processing');
+            showStatus('Processing file...', 'loading');
+            showLoadingOverlay();
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let data;
+                    if (fileName.endsWith('.csv')) {
+                        data = parseCSV(e.target.result);
+                    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                        data = parseExcel(e.target.result);
+                    } else {
+                        data = JSON.parse(e.target.result);
+                    }
+                    if (!Array.isArray(data) || data.length === 0) {
+                        throw new Error('File contains no valid data');
+                    }
+                    const requiredFields = ['year', 'month', 'channel', 'gains'];
+                    const firstRow = data[0];
+                    const availableFields = Object.keys(firstRow);
+                    const missingFields = requiredFields.filter(field => !availableFields.includes(field));
+                    if (missingFields.length > 0) {
+                        throw new Error(`Missing required columns: ${missingFields.join(', ')}. Optional columns: losses, plan, meter_type, product_group, day_of_month`);
+                    }
+                    processData(data);
+                    showStatus('File loaded successfully! (' + data.length + ' rows)', 'success');
+                    hideLoadingOverlay();
+                    uploadArea.classList.remove('processing');
+                } catch (error) {
+                    console.error('Processing error:', error);
+                    showStatus('Error: ' + error.message, 'error');
+                    hideLoadingOverlay();
+                    uploadArea.classList.remove('processing');
+                }
+            };
+            reader.onerror = function() {
+                showStatus('Error reading file', 'error');
+                hideLoadingOverlay();
+                uploadArea.classList.remove('processing');
+            };
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file);
+            }
+        }
+        
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/['"]/g, ''));
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = lines[i].split(',').map(v => v.trim().replace(/['"]/g, ''));
+                const row = {};
+                headers.forEach((header, index) => {
+                    const value = values[index];
+                    row[header] = !isNaN(value) && value !== '' ? Number(value) : value;
+                });
+                data.push(row);
+            }
+            return data;
+        }
+        
+        function parseExcel(arrayBuffer) {
+            try {
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const data = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: null });
+                const cleanedData = data.map(row => {
+                    const cleanRow = {};
+                    Object.keys(row).forEach(key => {
+                        const value = row[key];
+                        cleanRow[key] = !isNaN(value) && value !== null && value !== '' ? Number(value) : value;
+                    });
+                    return cleanRow;
+                });
+                return cleanedData;
+            } catch (error) {
+                throw new Error('Failed to parse Excel file: ' + error.message);
+            }
+        }
+        
+        function processData(data) {
+            dashboardData = data;
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const latestData = getLatestDataPeriod();
+            document.getElementById('dateRange').textContent = `Through ${monthNames[latestData.month]} ${latestData.year}`;
+            
+            updateYTDSummary();
+            updateCurrentMonth();
+            updateCurrentMonthLosses();
+            updateMonthlyPerformance();
+            updateHistorical();
+            updateAnalysis();
+            document.querySelectorAll('.kpi-card').forEach(card => {
+                card.classList.add('updating');
+                setTimeout(() => card.classList.remove('updating'), 1000);
+            });
+            fileInput.value = '';
+        }
+        
+        function getLatestPeriod() {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1;
+            
+            return { year: currentYear, month: currentMonth };
+        }
+        
+        function getCurrentDayOfMonth() {
+            const today = new Date();
+            return today.getDate();
+        }
+        
+        function getDaysInMonth(year, month) {
+            return new Date(year, month, 0).getDate();
+        }
+        
+        function getLatestDataPeriod() {
+            if (!dashboardData) return { year: 2025, month: 10 };
+            const allRecords = dashboardData.map(d => ({ year: Number(d.year), month: Number(d.month), gains: Number(d.gains) || 0 }));
+            const recordsWithGains = allRecords.filter(d => d.gains > 0);
+            if (recordsWithGains.length === 0) return { year: 2025, month: 10 };
+            const latestYear = Math.max(...recordsWithGains.map(d => d.year));
+            const latestYearRecords = recordsWithGains.filter(d => d.year === latestYear);
+            const latestMonth = Math.max(...latestYearRecords.map(d => d.month));
+            return { year: latestYear, month: latestMonth };
+        }
+        
+        function aggregateData(data, groupBy, priorYearData = null) {
+            const result = {};
+            data.forEach(row => {
+                const key = row[groupBy] || 'Unknown';
+                if (!result[key]) {
+                    result[key] = {
+                        gains: 0,
+                        losses: 0,
+                        plan: 0,
+                        priorYear: 0
+                    };
+                }
+                result[key].gains += Number(row.gains) || 0;
+                result[key].losses += Number(row.losses) || 0;
+                result[key].plan += Number(row.plan) || 0;
+            });
+            
+            if (priorYearData && priorYearData.length > 0) {
+                priorYearData.forEach(row => {
+                    const key = row[groupBy] || 'Unknown';
+                    if (!result[key]) {
+                        result[key] = {
+                            gains: 0,
+                            losses: 0,
+                            plan: 0,
+                            priorYear: 0
+                        };
+                    }
+                    result[key].priorYear += Number(row.gains) || 0;
+                });
+            }
+            
+            return result;
+        }
+        
+        function formatNumber(num, decimals = 0) {
+            if (num === null || num === undefined || isNaN(num)) return '--';
+            return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+        
+        function formatPercentage(num) {
+            if (num === null || num === undefined || isNaN(num)) return '--';
+            return num.toFixed(1) + '%';
+        }
+        
+        function getVarianceClass(num) {
+            if (num === null || num === undefined || isNaN(num)) return '';
+            return num >= 0 ? 'positive' : 'negative';
+        }
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function showStatus(message, type) {
+            fileStatus.textContent = message;
+            fileStatus.className = 'file-status status-' + type;
+            fileStatus.style.display = 'block';
+            setTimeout(() => {
+                if (type !== 'loading') {
+                    fileStatus.style.display = 'none';
+                }
+            }, 5000);
+        }
+        
+        function showLoadingOverlay() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+        
+        function hideLoadingOverlay() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+        
+        function downloadTemplate(event) {
+            event.preventDefault();
+            const template = `year,month,channel,meter_type,product_group,gains,losses,plan,day_of_month
+2024,1,DIRECT,RES,MTM,4200,700,4500,31
+2024,1,DIRECT,RES,TERM,2600,450,2800,31
+2024,1,DIRECT,BUS,MTM,1700,280,1800,31
+2024,1,DIRECT,BUS,TERM,1300,190,1400,31
+2024,2,DIRECT,RES,MTM,4000,680,4500,28
+2024,2,DIRECT,RES,TERM,2500,440,2800,28
+2024,2,DIRECT,BUS,MTM,1650,270,1800,28
+2024,2,DIRECT,BUS,TERM,1250,180,1400,28
+2024,3,DIRECT,RES,MTM,4300,720,4500,31
+2024,3,DIRECT,RES,TERM,2650,460,2800,31
+2024,3,DIRECT,BUS,MTM,1720,285,1800,31
+2024,3,DIRECT,BUS,TERM,1320,195,1400,31
+2024,8,DIRECT,RES,MTM,4200,700,4500,31
+2024,8,DIRECT,RES,TERM,2600,450,2800,31
+2024,8,DIRECT,BUS,MTM,1700,280,1800,31
+2024,8,DIRECT,BUS,TERM,1300,190,1400,31
+2025,1,DIRECT,RES,MTM,5000,800,4500,31
+2025,1,DIRECT,RES,TERM,3000,500,2800,31
+2025,1,DIRECT,BUS,MTM,2000,300,1800,31
+2025,1,DIRECT,BUS,TERM,1500,200,1400,31
+2025,2,DIRECT,RES,MTM,4800,750,4500,28
+2025,2,DIRECT,RES,TERM,2900,480,2800,28
+2025,2,DIRECT,BUS,MTM,1950,290,1800,28
+2025,2,DIRECT,BUS,TERM,1480,195,1400,28
+2025,3,DIRECT,RES,MTM,5200,820,4500,31
+2025,3,DIRECT,RES,TERM,3100,520,2800,31
+2025,3,DIRECT,BUS,MTM,2050,310,1800,31
+2025,3,DIRECT,BUS,TERM,1550,210,1400,31
+2025,8,DIRECT,RES,MTM,5500,900,4500,20
+2025,8,DIRECT,RES,TERM,3300,550,2800,20
+2025,8,DIRECT,BUS,MTM,2200,350,1800,20
+2025,8,DIRECT,BUS,TERM,1700,250,1400,20`;
+            
+            const blob = new Blob([template], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'txu_dashboard_template.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function toggleProration() {
+            prorationEnabled = document.getElementById('prorationToggle').checked;
+            const status = document.getElementById('toggleStatus');
+            status.textContent = prorationEnabled ? 'Pro-rated' : 'Full Month';
+            status.classList.toggle('active', prorationEnabled);
+            updateCurrentMonth();
+        }
+        
+        function toggleLossesProration() {
+            lossesProrationEnabled = document.getElementById('lossesProrationToggle').checked;
+            const status = document.getElementById('lossesToggleStatus');
+            status.textContent = lossesProrationEnabled ? 'Pro-rated' : 'Full Month';
+            status.classList.toggle('active', lossesProrationEnabled);
+            updateCurrentMonthLosses();
+        }
+        
+        function toggleYTDProration() {
+            ytdProrationEnabled = document.getElementById('ytdProrationToggle').checked;
+            const status = document.getElementById('ytdToggleStatus');
+            status.textContent = ytdProrationEnabled ? 'Pro-rated' : 'Full Months';
+            status.classList.toggle('active', ytdProrationEnabled);
+            updateYTDSummary();
+        }
+        
+        function toggleMonthlyProration() {
+            monthlyProrationEnabled = document.getElementById('monthlyProrationToggle').checked;
+            const status = document.getElementById('monthlyToggleStatus');
+            status.textContent = monthlyProrationEnabled ? 'Pro-rated' : 'Full Month';
+            status.classList.toggle('active', monthlyProrationEnabled);
+            updateMonthlyPerformance();
+        }
+        
+        function toggleHistoricalProration() {
+            historicalProrationEnabled = document.getElementById('historicalProrationToggle').checked;
+            const status = document.getElementById('historicalToggleStatus');
+            status.textContent = historicalProrationEnabled ? 'Pro-rated' : 'Full Month';
+            status.classList.toggle('active', historicalProrationEnabled);
+            updateHistorical();
+        }
+        
+        function updateYTDSummary() {
+            if (!dashboardData) return;
+            
+            const { year, month } = getLatestPeriod();
+            const ytdData = dashboardData.filter(d => Number(d.year) === year && Number(d.month) <= month);
+            const priorYearData = dashboardData.filter(d => Number(d.year) === year - 1 && Number(d.month) <= month);
+            
+            const totals = {
+                gains: ytdData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0),
+                plan: ytdData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0),
+                priorYear: priorYearData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0)
+            };
+            
+            if (ytdProrationEnabled && month > 0) {
+                const currentMonthData = ytdData.filter(d => Number(d.month) === month);
+                const currentMonthPY = priorYearData.filter(d => Number(d.month) === month);
+                
+                const currentDay = getCurrentDayOfMonth();
+                const daysInMonth = getDaysInMonth(year, month);
+                const prorationFactor = currentDay / daysInMonth;
+                
+                const currentMonthPlan = currentMonthData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0);
+                const currentMonthPriorYear = currentMonthPY.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                const priorMonthsData = ytdData.filter(d => Number(d.month) < month);
+                const priorMonthsPY = priorYearData.filter(d => Number(d.month) < month);
+                const priorMonthsPlan = priorMonthsData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0);
+                const priorMonthsPriorYear = priorMonthsPY.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                
+                totals.plan = priorMonthsPlan + (currentMonthPlan * prorationFactor);
+                totals.priorYear = priorMonthsPriorYear + (currentMonthPriorYear * prorationFactor);
+            }
+            
+            document.getElementById('ytdGains').textContent = formatNumber(totals.gains);
+            document.getElementById('ytdPlan').textContent = formatNumber(totals.plan);
+            document.getElementById('ytdPriorYear').textContent = formatNumber(totals.priorYear);
+            
+            const planVariance = (totals.gains || 0) - (totals.plan || 0);
+            const planVariancePercent = totals.plan !== 0 ? (planVariance / totals.plan) * 100 : 0;
+            document.getElementById('planVariance').innerHTML = `<span class="${getVarianceClass(planVariance)}">${formatNumber(planVariance, 0)} (${formatPercentage(planVariancePercent)})</span>`;
+            
+            const pyVariance = (totals.gains || 0) - (totals.priorYear || 0);
+            const pyVariancePercent = totals.priorYear !== 0 ? (pyVariance / totals.priorYear) * 100 : 0;
+            document.getElementById('priorYearVariance').innerHTML = `<span class="${getVarianceClass(pyVariance)}">${formatNumber(pyVariance, 0)} (${formatPercentage(pyVariancePercent)})</span>`;
+            
+            updateYTDTables(ytdData, priorYearData, totals);
+            updateYTDCharts(ytdData, priorYearData);
+        }
+        
+        function updateYTDTables(ytdData, priorYearData, totals) {
+            const channelAgg = aggregateData(ytdData, 'channel', priorYearData);
+            updateTable('channelTable', channelAgg, totals);
+            
+            const meterAgg = aggregateData(ytdData, 'meter_type', priorYearData);
+            updateTable('meterTable', meterAgg, totals);
+            
+            const productAgg = aggregateData(ytdData, 'product_group', priorYearData);
+            updateTable('productTable', productAgg, totals);
+        }
+        
+        function updateTable(tableId, aggregatedData, totals) {
+            const tbody = document.getElementById(tableId).querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            Object.keys(aggregatedData).forEach(key => {
+                const data = aggregatedData[key];
+                const vsPlan = (data.gains || 0) - (data.plan || 0);
+                const vsPlanPercent = data.plan !== 0 ? (vsPlan / data.plan) * 100 : 0;
+                const vsPY = (data.gains || 0) - (data.priorYear || 0);
+                const vsPYPercent = data.priorYear !== 0 ? (vsPY / data.priorYear) * 100 : 0;
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${key}</td>
+                    <td>${formatNumber(data.gains)}</td>
+                    <td>${formatNumber(data.plan)}</td>
+                    <td class="${getVarianceClass(vsPlan)}">${formatNumber(vsPlan)}</td>
+                    <td class="${getVarianceClass(vsPlan)}">${formatPercentage(vsPlanPercent)}</td>
+                    <td>${formatNumber(data.priorYear)}</td>
+                    <td class="${getVarianceClass(vsPY)}">${formatNumber(vsPY)}</td>
+                    <td class="${getVarianceClass(vsPY)}">${formatPercentage(vsPYPercent)}</td>
+                `;
+            });
+            
+            if (totals) {
+                const vsPlan = (totals.gains || 0) - (totals.plan || 0);
+                const vsPlanPercent = totals.plan !== 0 ? (vsPlan / totals.plan) * 100 : 0;
+                const vsPY = (totals.gains || 0) - (totals.priorYear || 0);
+                const vsPYPercent = totals.priorYear !== 0 ? (vsPY / totals.priorYear) * 100 : 0;
+                
+                const totalRow = tbody.insertRow();
+                totalRow.className = 'grand-total';
+                totalRow.innerHTML = `
+                    <td><strong>Total</strong></td>
+                    <td><strong>${formatNumber(totals.gains)}</strong></td>
+                    <td><strong>${formatNumber(totals.plan)}</strong></td>
+                    <td class="${getVarianceClass(vsPlan)}"><strong>${formatNumber(vsPlan)}</strong></td>
+                    <td class="${getVarianceClass(vsPlan)}"><strong>${formatPercentage(vsPlanPercent)}</strong></td>
+                    <td><strong>${formatNumber(totals.priorYear)}</strong></td>
+                    <td class="${getVarianceClass(vsPY)}"><strong>${formatNumber(vsPY)}</strong></td>
+                    <td class="${getVarianceClass(vsPY)}"><strong>${formatPercentage(vsPYPercent)}</strong></td>
+                `;
+            }
+        }
+        
+        function updateYTDCharts(ytdData, priorYearData) {
+            const meterAgg = aggregateData(ytdData, 'meter_type', priorYearData);
+            const productAgg = aggregateData(ytdData, 'product_group', priorYearData);
+            
+            if (ytdChannelChart) ytdChannelChart.destroy();
+            ytdChannelChart = createBarChart('ytdChannelChart', meterAgg);
+            
+            if (ytdDistributionChart) ytdDistributionChart.destroy();
+            ytdDistributionChart = createBarChart('ytdDistributionChart', productAgg);
+        }
+        
+        function createBarChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = Object.keys(data);
+            const gains = labels.map(k => data[k].gains);
+            const plan = labels.map(k => data[k].plan);
+            const priorYear = labels.map(k => data[k].priorYear);
+            
+            return new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Actual Gains',
+                            data: gains,
+                            backgroundColor: '#667eea'
+                        },
+                        {
+                            label: 'Plan',
+                            data: plan,
+                            backgroundColor: '#10b981'
+                        },
+                        {
+                            label: 'Prior Year',
+                            data: priorYear,
+                            backgroundColor: '#f59e0b'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCurrentMonth() {
+            if (!dashboardData) return;
+            
+            const { year, month } = getLatestPeriod();
+            const currentMonthData = dashboardData.filter(d => Number(d.year) === year && Number(d.month) === month);
+            const priorYearMonthData = dashboardData.filter(d => Number(d.year) === year - 1 && Number(d.month) === month);
+            
+            const currentDay = getCurrentDayOfMonth();
+            const daysInMonth = getDaysInMonth(year, month);
+            
+            const totals = {
+                gains: currentMonthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0),
+                plan: currentMonthData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0),
+                priorYear: priorYearMonthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0)
+            };
+            
+            if (prorationEnabled) {
+                const prorationFactor = currentDay / daysInMonth;
+                totals.plan *= prorationFactor;
+                totals.priorYear *= prorationFactor;
+            }
+            
+            const dailyAvg = currentDay > 0 ? totals.gains / currentDay : 0;
+            
+            document.getElementById('mtdGains').textContent = formatNumber(totals.gains);
+            document.getElementById('mtdDays').textContent = `${currentDay} days`;
+            document.getElementById('mtdPlan').textContent = formatNumber(totals.plan);
+            
+            const vsPlan = (totals.gains || 0) - (totals.plan || 0);
+            const vsPlanPercent = totals.plan !== 0 ? (vsPlan / totals.plan) * 100 : 0;
+            document.getElementById('mtdTracking').innerHTML = `<span class="${getVarianceClass(vsPlan)}">${formatNumber(vsPlan)} (${formatPercentage(vsPlanPercent)})</span>`;
+            
+            document.getElementById('mtdPriorYear').textContent = formatNumber(totals.priorYear);
+            const vsPY = (totals.gains || 0) - (totals.priorYear || 0);
+            const vsPYPercent = totals.priorYear !== 0 ? (vsPY / totals.priorYear) * 100 : 0;
+            document.getElementById('mtdPriorYearVariance').innerHTML = `<span class="${getVarianceClass(vsPY)}">${formatNumber(vsPY)} (${formatPercentage(vsPYPercent)})</span>`;
+            
+            document.getElementById('dailyAvg').textContent = formatNumber(dailyAvg, 0);
+            
+            updateCurrentMonthTables(currentMonthData, priorYearMonthData, totals);
+            updateCurrentMonthCharts(currentMonthData, priorYearMonthData);
+        }
+        
+        function updateCurrentMonthTables(currentMonthData, priorYearMonthData, totals) {
+            const channelAgg = aggregateData(currentMonthData, 'channel', priorYearMonthData);
+            updateTable('currentChannelTable', channelAgg, totals);
+            
+            const meterAgg = aggregateData(currentMonthData, 'meter_type', priorYearMonthData);
+            updateTable('currentMeterTable', meterAgg, totals);
+            
+            const productAgg = aggregateData(currentMonthData, 'product_group', priorYearMonthData);
+            updateTable('currentProductTable', productAgg, totals);
+        }
+        
+        function updateCurrentMonthCharts(currentMonthData, priorYearMonthData) {
+            const meterAgg = aggregateData(currentMonthData, 'meter_type', priorYearMonthData);
+            const productAgg = aggregateData(currentMonthData, 'product_group', priorYearMonthData);
+            
+            if (currentChannelChart) currentChannelChart.destroy();
+            currentChannelChart = createBarChart('currentChannelChart', meterAgg);
+            
+            if (currentProductChart) currentProductChart.destroy();
+            currentProductChart = createBarChart('currentProductChart', productAgg);
+        }
+        
+        function updateCurrentMonthLosses() {
+            if (!dashboardData) return;
+            
+            const { year, month } = getLatestPeriod();
+            const currentMonthData = dashboardData.filter(d => Number(d.year) === year && Number(d.month) === month);
+            const priorYearMonthData = dashboardData.filter(d => Number(d.year) === year - 1 && Number(d.month) === month);
+            
+            const currentDay = getCurrentDayOfMonth();
+            const daysInMonth = getDaysInMonth(year, month);
+            
+            const totals = {
+                gains: currentMonthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0),
+                losses: currentMonthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0),
+                priorYearLosses: priorYearMonthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0)
+            };
+            
+            if (lossesProrationEnabled) {
+                const prorationFactor = currentDay / daysInMonth;
+                totals.priorYearLosses *= prorationFactor;
+            }
+            
+            const net = (totals.gains || 0) - (totals.losses || 0);
+            const dailyNetAvg = currentDay > 0 ? net / currentDay : 0;
+            
+            document.getElementById('mtdLosses').textContent = formatNumber(totals.losses);
+            document.getElementById('mtdLossesDays').textContent = `${currentDay} days`;
+            document.getElementById('mtdNet').textContent = formatNumber(net);
+            document.getElementById('mtdNetInfo').innerHTML = `<span class="${getVarianceClass(net)}">Gains - Losses</span>`;
+            
+            document.getElementById('mtdLossesPriorYear').textContent = formatNumber(totals.priorYearLosses);
+            const vsPY = (totals.losses || 0) - (totals.priorYearLosses || 0);
+            const vsPYPercent = totals.priorYearLosses !== 0 ? (vsPY / totals.priorYearLosses) * 100 : 0;
+            document.getElementById('mtdLossesPriorYearVariance').innerHTML = `<span class="${getVarianceClass(-vsPY)}">${formatNumber(vsPY)} (${formatPercentage(vsPYPercent)})</span>`;
+            
+            document.getElementById('dailyNetAvg').textContent = formatNumber(dailyNetAvg, 0);
+            document.getElementById('dailyNetComparison').textContent = 'net gains/day';
+            
+            updateLossesTables(currentMonthData, priorYearMonthData);
+            updateLossesCharts(currentMonthData);
+        }
+        
+        function updateLossesTables(currentMonthData, priorYearMonthData) {
+            updateLossesTable('lossesChannelTable', currentMonthData, priorYearMonthData, 'channel');
+            updateLossesTable('lossesMeterTable', currentMonthData, priorYearMonthData, 'meter_type');
+            updateLossesTable('lossesProductTable', currentMonthData, priorYearMonthData, 'product_group');
+        }
+        
+        function updateLossesTable(tableId, currentData, priorYearData, groupBy) {
+            const tbody = document.getElementById(tableId).querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const currentAgg = {};
+            const priorYearAgg = {};
+            
+            currentData.forEach(row => {
+                const key = row[groupBy] || 'Unknown';
+                if (!currentAgg[key]) {
+                    currentAgg[key] = { gains: 0, losses: 0 };
+                }
+                currentAgg[key].gains += Number(row.gains) || 0;
+                currentAgg[key].losses += Number(row.losses) || 0;
+            });
+            
+            priorYearData.forEach(row => {
+                const key = row[groupBy] || 'Unknown';
+                if (!priorYearAgg[key]) {
+                    priorYearAgg[key] = { losses: 0 };
+                }
+                priorYearAgg[key].losses += Number(row.losses) || 0;
+            });
+            
+            let totalLosses = 0, totalNet = 0, totalPY = 0;
+            
+            Object.keys(currentAgg).forEach(key => {
+                const data = currentAgg[key];
+                const pyLosses = priorYearAgg[key] ? priorYearAgg[key].losses : 0;
+                const net = (data.gains || 0) - (data.losses || 0);
+                totalLosses += data.losses || 0;
+                totalNet += net;
+                totalPY += pyLosses;
+                
+                const vsPY = (data.losses || 0) - pyLosses;
+                const vsPYPercent = pyLosses !== 0 ? (vsPY / pyLosses) * 100 : 0;
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${key}</td>
+                    <td>${formatNumber(data.losses)}</td>
+                    <td class="${getVarianceClass(net)}">${formatNumber(net)}</td>
+                    <td>${formatNumber(pyLosses)}</td>
+                    <td class="${getVarianceClass(-vsPY)}">${formatNumber(vsPY)}</td>
+                    <td class="${getVarianceClass(-vsPY)}">${formatPercentage(vsPYPercent)}</td>
+                `;
+            });
+            
+            const vsPY = totalLosses - totalPY;
+            const vsPYPercent = totalPY !== 0 ? (vsPY / totalPY) * 100 : 0;
+            
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'grand-total';
+            totalRow.innerHTML = `
+                <td><strong>Total</strong></td>
+                <td><strong>${formatNumber(totalLosses)}</strong></td>
+                <td class="${getVarianceClass(totalNet)}"><strong>${formatNumber(totalNet)}</strong></td>
+                <td><strong>${formatNumber(totalPY)}</strong></td>
+                <td class="${getVarianceClass(-vsPY)}"><strong>${formatNumber(vsPY)}</strong></td>
+                <td class="${getVarianceClass(-vsPY)}"><strong>${formatPercentage(vsPYPercent)}</strong></td>
+            `;
+        }
+        
+        function updateLossesCharts(currentMonthData) {
+            const meterAgg = aggregateData(currentMonthData, 'meter_type');
+            const productAgg = aggregateData(currentMonthData, 'product_group');
+            
+            if (lossesChannelChart) lossesChannelChart.destroy();
+            const meterLabels = Object.keys(meterAgg);
+            lossesChannelChart = new Chart(document.getElementById('lossesChannelChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: meterLabels,
+                    datasets: [
+                        {
+                            label: 'Gains',
+                            data: meterLabels.map(k => meterAgg[k].gains),
+                            backgroundColor: '#10b981'
+                        },
+                        {
+                            label: 'Losses',
+                            data: meterLabels.map(k => meterAgg[k].losses),
+                            backgroundColor: '#ef4444'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            if (lossesProductChart) lossesProductChart.destroy();
+            const productLabels = Object.keys(productAgg);
+            lossesProductChart = new Chart(document.getElementById('lossesProductChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: productLabels,
+                    datasets: [
+                        {
+                            label: 'Net (Gains - Losses)',
+                            data: productLabels.map(k => productAgg[k].gains - productAgg[k].losses),
+                            backgroundColor: '#667eea'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateMonthlyPerformance() {
+            if (!dashboardData) return;
+            
+            const { year } = getLatestPeriod();
+            const currentYearData = dashboardData.filter(d => Number(d.year) === year);
+            const priorYearData = dashboardData.filter(d => Number(d.year) === year - 1);
+            
+            updateMonthlyTable(currentYearData, priorYearData);
+            updateMonthlyCharts(currentYearData, priorYearData);
+        }
+        
+        function updateMonthlyTable(currentYearData, priorYearData) {
+            const tbody = document.getElementById('monthlyTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const monthlyTotals = {};
+            for (let m = 1; m <= 12; m++) {
+                const monthData = currentYearData.filter(d => Number(d.month) === m);
+                monthlyTotals[m] = {
+                    gains: monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0),
+                    losses: monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0),
+                    plan: monthData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0),
+                    priorYear: priorYearData.filter(d => Number(d.month) === m).reduce((sum, d) => sum + (Number(d.gains) || 0), 0)
+                };
+            }
+            
+            const rows = [
+                { label: 'Actual Gains', field: 'gains' },
+                { label: 'Plan', field: 'plan' },
+                { label: 'vs Plan', field: 'vsPlan' },
+                { label: 'Prior Year', field: 'priorYear' },
+                { label: 'vs Prior Year', field: 'vsPY' }
+            ];
+            
+            rows.forEach(rowDef => {
+                const row = tbody.insertRow();
+                const labelCell = row.insertCell();
+                labelCell.textContent = rowDef.label;
+                
+                let ytdTotal = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const cell = row.insertCell();
+                    let value;
+                    if (rowDef.field === 'vsPlan') {
+                        value = monthlyTotals[m].gains - monthlyTotals[m].plan;
+                        cell.className = getVarianceClass(value);
+                    } else if (rowDef.field === 'vsPY') {
+                        value = monthlyTotals[m].gains - monthlyTotals[m].priorYear;
+                        cell.className = getVarianceClass(value);
+                    } else {
+                        value = monthlyTotals[m][rowDef.field];
+                    }
+                    cell.textContent = value !== 0 ? formatNumber(value) : '--';
+                    ytdTotal += value;
+                }
+                
+                const ytdCell = row.insertCell();
+                ytdCell.textContent = formatNumber(ytdTotal);
+                if (rowDef.field === 'vsPlan' || rowDef.field === 'vsPY') {
+                    ytdCell.className = getVarianceClass(ytdTotal);
+                }
+            });
+            
+            updateMonthlyProductTable(currentYearData, priorYearData);
+        }
+        
+        function updateMonthlyProductTable(currentYearData, priorYearData) {
+            const tbody = document.getElementById('monthlyProductTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const products = [...new Set(currentYearData.map(d => d.product_group))].sort();
+            
+            products.forEach(product => {
+                const productData = currentYearData.filter(d => d.product_group === product);
+                const productPY = priorYearData.filter(d => d.product_group === product);
+                
+                const monthlyTotals = {};
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = productData.filter(d => Number(d.month) === m);
+                    monthlyTotals[m] = {
+                        gains: monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0),
+                        losses: monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0),
+                        net: 0
+                    };
+                    monthlyTotals[m].net = monthlyTotals[m].gains - monthlyTotals[m].losses;
+                }
+                
+                const gainsRow = tbody.insertRow();
+                const gainsLabel = gainsRow.insertCell();
+                gainsLabel.textContent = `${product} - Gains`;
+                let ytdGains = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const cell = gainsRow.insertCell();
+                    cell.textContent = monthlyTotals[m].gains !== 0 ? formatNumber(monthlyTotals[m].gains) : '--';
+                    ytdGains += monthlyTotals[m].gains;
+                }
+                const ytdGainsCell = gainsRow.insertCell();
+                ytdGainsCell.textContent = formatNumber(ytdGains);
+                
+                const netRow = tbody.insertRow();
+                const netLabel = netRow.insertCell();
+                netLabel.textContent = `${product} - Net`;
+                let ytdNet = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const cell = netRow.insertCell();
+                    cell.textContent = monthlyTotals[m].net !== 0 ? formatNumber(monthlyTotals[m].net) : '--';
+                    cell.className = getVarianceClass(monthlyTotals[m].net);
+                    ytdNet += monthlyTotals[m].net;
+                }
+                const ytdNetCell = netRow.insertCell();
+                ytdNetCell.textContent = formatNumber(ytdNet);
+                ytdNetCell.className = getVarianceClass(ytdNet);
+            });
+        }
+        
+        function updateMonthlyCharts(currentYearData, priorYearData) {
+            const { year, month: currentMonth } = getLatestPeriod();
+            const latestData = getLatestDataPeriod();
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const currentDay = getCurrentDayOfMonth();
+            const daysInMonth = getDaysInMonth(year, currentMonth);
+            const prorationFactor = currentDay / daysInMonth;
+            
+            const monthlyGains = [];
+            const monthlyPlan = [];
+            const monthlyPY = [];
+            const monthlyNet = [];
+            const cumGains = [];
+            const cumLosses = [];
+            const cumPY = [];
+            const cumPlan = [];
+            
+            let cumGainsSum = 0, cumLossesSum = 0, cumPYSum = 0, cumPlanSum = 0;
+            
+            for (let m = 1; m <= 12; m++) {
+                const monthData = currentYearData.filter(d => Number(d.month) === m);
+                const gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                const losses = monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                let plan = monthData.reduce((sum, d) => sum + (Number(d.plan) || 0), 0);
+                let py = priorYearData.filter(d => Number(d.month) === m).reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                
+                if (monthlyProrationEnabled && m === currentMonth) {
+                    plan = plan * prorationFactor;
+                    py = py * prorationFactor;
+                }
+                
+                if (m <= latestData.month) {
+                    monthlyGains.push(gains);
+                    monthlyNet.push(gains - losses);
+                    
+                    cumGainsSum += gains;
+                    cumLossesSum += losses;
+                    cumGains.push(cumGainsSum);
+                    cumLosses.push(cumLossesSum);
+                } else {
+                    monthlyGains.push(null);
+                    monthlyNet.push(null);
+                    cumGains.push(null);
+                    cumLosses.push(null);
+                }
+                
+                monthlyPlan.push(plan);
+                monthlyPY.push(py);
+                
+                cumPYSum += py;
+                cumPlanSum += plan;
+                cumPY.push(cumPYSum);
+                cumPlan.push(cumPlanSum);
+            }
+            
+            if (monthlyTrendChart) monthlyTrendChart.destroy();
+            monthlyTrendChart = new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: 'Actual Gains',
+                            data: monthlyGains,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Plan',
+                            data: monthlyPlan,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Prior Year',
+                            data: monthlyPY,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            if (monthlyNetChart) monthlyNetChart.destroy();
+            monthlyNetChart = new Chart(document.getElementById('monthlyNetChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: 'Net (Gains - Losses)',
+                            data: monthlyNet,
+                            backgroundColor: monthlyNet.map(v => v === null ? 'transparent' : (v >= 0 ? '#10b981' : '#ef4444'))
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            if (cumulativeGainsLossesChart) cumulativeGainsLossesChart.destroy();
+            cumulativeGainsLossesChart = new Chart(document.getElementById('cumulativeGainsLossesChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: 'Cumulative Gains',
+                            data: cumGains,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Cumulative Losses',
+                            data: cumLosses,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Prior Year Cumulative',
+                            data: cumPY,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            if (cumulativeVsPlanChart) cumulativeVsPlanChart.destroy();
+            cumulativeVsPlanChart = new Chart(document.getElementById('cumulativeVsPlanChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [
+                        {
+                            label: 'Cumulative Actual',
+                            data: cumGains,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Cumulative Plan',
+                            data: cumPlan,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            updateProductMeterCharts(currentYearData);
+        }
+        
+        function updateProductMeterCharts(currentYearData) {
+            const latestData = getLatestDataPeriod();
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const chartConfigs = [
+                { chartVar: 'monthlyNetMTMChart', canvasId: 'monthlyNetMTMChart', filter: d => d.product_group === 'MTM' },
+                { chartVar: 'monthlyNetTERMChart', canvasId: 'monthlyNetTERMChart', filter: d => d.product_group === 'TERM' },
+                { chartVar: 'monthlyNetBUSChart', canvasId: 'monthlyNetBUSChart', filter: d => d.meter_type === 'BUS' },
+                { chartVar: 'monthlyNetRESChart', canvasId: 'monthlyNetRESChart', filter: d => d.meter_type === 'RES' }
+            ];
+            
+            chartConfigs.forEach(config => {
+                const filteredData = currentYearData.filter(config.filter);
+                const monthlyNet = [];
+                
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = filteredData.filter(d => Number(d.month) === m);
+                    const gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    const losses = monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                    
+                    if (m <= latestData.month) {
+                        monthlyNet.push(gains - losses);
+                    } else {
+                        monthlyNet.push(null);
+                    }
+                }
+                
+                if (config.chartVar === 'monthlyNetMTMChart') {
+                    if (monthlyNetMTMChart) monthlyNetMTMChart.destroy();
+                    monthlyNetMTMChart = createMonthlyNetChart(config.canvasId, monthLabels, monthlyNet);
+                } else if (config.chartVar === 'monthlyNetTERMChart') {
+                    if (monthlyNetTERMChart) monthlyNetTERMChart.destroy();
+                    monthlyNetTERMChart = createMonthlyNetChart(config.canvasId, monthLabels, monthlyNet);
+                } else if (config.chartVar === 'monthlyNetBUSChart') {
+                    if (monthlyNetBUSChart) monthlyNetBUSChart.destroy();
+                    monthlyNetBUSChart = createMonthlyNetChart(config.canvasId, monthLabels, monthlyNet);
+                } else if (config.chartVar === 'monthlyNetRESChart') {
+                    if (monthlyNetRESChart) monthlyNetRESChart.destroy();
+                    monthlyNetRESChart = createMonthlyNetChart(config.canvasId, monthLabels, monthlyNet);
+                }
+            });
+        }
+        
+        function createMonthlyNetChart(canvasId, labels, data) {
+            return new Chart(document.getElementById(canvasId).getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Net (Gains - Losses)',
+                            data: data,
+                            backgroundColor: data.map(v => v === null ? 'transparent' : (v >= 0 ? '#10b981' : '#ef4444'))
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateHistorical() {
+            if (!dashboardData) return;
+            
+            const { year } = getLatestPeriod();
+            const currentYearData = dashboardData.filter(d => Number(d.year) === year);
+            const priorYearData = dashboardData.filter(d => Number(d.year) === year - 1);
+            
+            document.getElementById('historicalYearHeader').textContent = `${year} vs ${year - 1}`;
+            
+            updateHistoricalTable(currentYearData, priorYearData, year);
+            updateHistoricalChart(currentYearData, priorYearData, year);
+        }
+        
+        function updateHistoricalTable(currentYearData, priorYearData, year) {
+            const tbody = document.getElementById('historicalTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const channels = [...new Set([...currentYearData.map(d => d.channel), ...priorYearData.map(d => d.channel)])].sort();
+            const { month: currentMonth } = getLatestPeriod();
+            const latestData = getLatestDataPeriod();
+            const currentDay = getCurrentDayOfMonth();
+            const daysInMonth = getDaysInMonth(year, currentMonth);
+            const prorationFactor = currentDay / daysInMonth;
+            
+            channels.forEach(channel => {
+                const channelData = currentYearData.filter(d => d.channel === channel);
+                const channelPY = priorYearData.filter(d => d.channel === channel);
+                
+                const currentRow = tbody.insertRow();
+                const currentLabel = currentRow.insertCell();
+                currentLabel.textContent = channel;
+                currentLabel.rowSpan = 2;
+                
+                const currentMetric = currentRow.insertCell();
+                currentMetric.textContent = `${year} Actual`;
+                
+                let ytdTotal = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelData.filter(d => Number(d.month) === m);
+                    let gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    
+                    if (historicalProrationEnabled && m === currentMonth && m <= latestData.month) {
+                        gains = gains * prorationFactor;
+                    }
+                    
+                    const cell = currentRow.insertCell();
+                    if (m <= latestData.month) {
+                        cell.textContent = gains > 0 ? formatNumber(gains) : '--';
+                        ytdTotal += gains;
+                    } else {
+                        cell.textContent = '--';
+                    }
+                }
+                const ytdCell = currentRow.insertCell();
+                ytdCell.textContent = formatNumber(ytdTotal);
+                
+                const pyRow = tbody.insertRow();
+                const pyMetric = pyRow.insertCell();
+                pyMetric.textContent = `${year - 1} Actual`;
+                
+                let pyTotal = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelPY.filter(d => Number(d.month) === m);
+                    let gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    
+                    if (historicalProrationEnabled && m === currentMonth) {
+                        gains = gains * prorationFactor;
+                    }
+                    
+                    const cell = pyRow.insertCell();
+                    cell.textContent = gains > 0 ? formatNumber(gains) : '--';
+                    pyTotal += gains;
+                }
+                const pyTotalCell = pyRow.insertCell();
+                pyTotalCell.textContent = formatNumber(pyTotal);
+            });
+        }
+        
+        function updateHistoricalChart(currentYearData, priorYearData, year) {
+            const channels = [...new Set([...currentYearData.map(d => d.channel), ...priorYearData.map(d => d.channel)])].sort();
+            const { month: currentMonth } = getLatestPeriod();
+            const latestData = getLatestDataPeriod();
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const currentDay = getCurrentDayOfMonth();
+            const daysInMonth = getDaysInMonth(year, currentMonth);
+            const prorationFactor = currentDay / daysInMonth;
+            
+            const datasets = [];
+            const colors = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+            
+            channels.forEach((channel, index) => {
+                const channelCurrentData = currentYearData.filter(d => d.channel === channel);
+                const monthlyData = [];
+                
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelCurrentData.filter(d => Number(d.month) === m);
+                    let gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    
+                    if (historicalProrationEnabled && m === currentMonth && m <= latestData.month) {
+                        gains = gains * prorationFactor;
+                    }
+                    
+                    if (m <= latestData.month) {
+                        monthlyData.push(gains);
+                    } else {
+                        monthlyData.push(null);
+                    }
+                }
+                
+                datasets.push({
+                    label: `${channel} ${year}`,
+                    data: monthlyData,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: `${colors[index % colors.length]}33`,
+                    tension: 0.4,
+                    spanGaps: false
+                });
+                
+                const channelPYData = priorYearData.filter(d => d.channel === channel);
+                const monthlyPYData = [];
+                
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelPYData.filter(d => Number(d.month) === m);
+                    let gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    
+                    if (historicalProrationEnabled && m === currentMonth) {
+                        gains = gains * prorationFactor;
+                    }
+                    
+                    monthlyPYData.push(gains);
+                }
+                
+                datasets.push({
+                    label: `${channel} ${year - 1}`,
+                    data: monthlyPYData,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: `${colors[index % colors.length]}11`,
+                    tension: 0.4,
+                    borderDash: [5, 5]
+                });
+            });
+            
+            if (historicalChart) historicalChart.destroy();
+            historicalChart = new Chart(document.getElementById('historicalChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateAnalysis() {
+            if (!dashboardData) return;
+            
+            const { year } = getLatestPeriod();
+            const latestData = getLatestDataPeriod();
+            const currentYearData = dashboardData.filter(d => Number(d.year) === year);
+            const priorYearData = dashboardData.filter(d => Number(d.year) === year - 1);
+            
+            updateChannelNetAnalysis(currentYearData, priorYearData, year, latestData);
+            updateCombinationAnalysis(currentYearData, priorYearData, year, latestData);
+        }
+        
+        function updateChannelNetAnalysis(currentYearData, priorYearData, year, latestData) {
+            const tbody = document.getElementById('analysisChannelTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const channels = [...new Set([...currentYearData.map(d => d.channel), ...priorYearData.map(d => d.channel)])].sort();
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const channelNetData = {};
+            
+            channels.forEach(channel => {
+                const channelCurrentData = currentYearData.filter(d => d.channel === channel);
+                const channelPYData = priorYearData.filter(d => d.channel === channel);
+                
+                const currentRow = tbody.insertRow();
+                currentRow.className = 'subtotal';
+                const channelCell = currentRow.insertCell();
+                channelCell.textContent = channel;
+                channelCell.rowSpan = 2;
+                
+                const currentYearCell = currentRow.insertCell();
+                currentYearCell.textContent = year.toString();
+                
+                let ytdNetCurrent = 0;
+                const currentNetData = [];
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelCurrentData.filter(d => Number(d.month) === m);
+                    const gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    const losses = monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                    const net = gains - losses;
+                    
+                    const cell = currentRow.insertCell();
+                    if (m <= latestData.month) {
+                        cell.textContent = formatNumber(net);
+                        cell.className = getVarianceClass(net);
+                        ytdNetCurrent += net;
+                        currentNetData.push(net);
+                    } else {
+                        cell.textContent = '--';
+                        currentNetData.push(null);
+                    }
+                }
+                const ytdCell = currentRow.insertCell();
+                ytdCell.textContent = formatNumber(ytdNetCurrent);
+                ytdCell.className = getVarianceClass(ytdNetCurrent);
+                
+                const pyRow = tbody.insertRow();
+                const pyYearCell = pyRow.insertCell();
+                pyYearCell.textContent = (year - 1).toString();
+                
+                let ytdNetPY = 0;
+                const pyNetData = [];
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = channelPYData.filter(d => Number(d.month) === m);
+                    const gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    const losses = monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                    const net = gains - losses;
+                    
+                    const cell = pyRow.insertCell();
+                    cell.textContent = formatNumber(net);
+                    cell.className = getVarianceClass(net);
+                    ytdNetPY += net;
+                    pyNetData.push(net);
+                }
+                const ytdPYCell = pyRow.insertCell();
+                ytdPYCell.textContent = formatNumber(ytdNetPY);
+                ytdPYCell.className = getVarianceClass(ytdNetPY);
+                
+                channelNetData[channel] = {
+                    current: currentNetData,
+                    priorYear: pyNetData,
+                    ytdCurrent: ytdNetCurrent,
+                    ytdPY: ytdNetPY
+                };
+            });
+            
+            updateChannelNetChart(channels, channelNetData, year);
+            generateChannelInsights(channels, channelNetData, year);
+        }
+        
+        function updateChannelNetChart(channels, channelNetData, year) {
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const colors = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+            
+            const datasets = [];
+            channels.forEach((channel, index) => {
+                datasets.push({
+                    label: `${channel} ${year}`,
+                    data: channelNetData[channel].current,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: `${colors[index % colors.length]}33`,
+                    tension: 0.4,
+                    spanGaps: false
+                });
+                
+                datasets.push({
+                    label: `${channel} ${year - 1}`,
+                    data: channelNetData[channel].priorYear,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: `${colors[index % colors.length]}11`,
+                    tension: 0.4,
+                    borderDash: [5, 5]
+                });
+            });
+            
+            if (analysisChannelChart) analysisChannelChart.destroy();
+            analysisChannelChart = new Chart(document.getElementById('analysisChannelChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function generateChannelInsights(channels, channelNetData, year) {
+            const insightsDiv = document.getElementById('channelInsights');
+            let insights = '<h3>Channel Performance Insights</h3>';
+            
+            const channelPerformance = [];
+            channels.forEach(channel => {
+                const ytdCurrent = channelNetData[channel].ytdCurrent;
+                const ytdPY = channelNetData[channel].ytdPY;
+                const yoyChange = ytdCurrent - ytdPY;
+                const yoyChangePercent = ytdPY !== 0 ? (yoyChange / ytdPY) * 100 : 0;
+                
+                channelPerformance.push({
+                    channel,
+                    ytdCurrent,
+                    ytdPY,
+                    yoyChange,
+                    yoyChangePercent
+                });
+            });
+            
+            channelPerformance.sort((a, b) => b.ytdCurrent - a.ytdCurrent);
+            const topChannel = channelPerformance[0];
+            
+            const growthChannels = channelPerformance.filter(c => c.yoyChange > 0);
+            const declineChannels = channelPerformance.filter(c => c.yoyChange < 0);
+            
+            insights += `<p>The ${topChannel.channel} channel demonstrates the strongest year-to-date net performance with ${formatNumber(topChannel.ytdCurrent)} customer gains, representing ${formatNumber(Math.abs(topChannel.yoyChange))} ${topChannel.yoyChange >= 0 ? 'more' : 'fewer'} net customers compared to the prior year period.</p>`;
+            
+            if (growthChannels.length > 0) {
+                const avgGrowth = growthChannels.reduce((sum, c) => sum + c.yoyChangePercent, 0) / growthChannels.length;
+                insights += `<p>Year-over-year analysis reveals that ${growthChannels.length} ${growthChannels.length === 1 ? 'channel shows' : 'channels show'} positive net growth, with an average improvement of ${formatPercentage(avgGrowth)} compared to the prior year. This indicates effective customer retention and acquisition strategies across these channels.</p>`;
+            }
+            
+            if (declineChannels.length > 0) {
+                const channelList = declineChannels.map(c => c.channel).join(', ');
+                insights += `<p>Strategic attention is recommended for ${declineChannels.length === 1 ? 'the' : ''} ${channelList} ${declineChannels.length === 1 ? 'channel' : 'channels'}, which ${declineChannels.length === 1 ? 'has' : 'have'} experienced year-over-year net customer declines. A comprehensive review of market dynamics, competitive positioning, and operational execution within ${declineChannels.length === 1 ? 'this segment' : 'these segments'} is warranted to identify improvement opportunities.</p>`;
+            }
+            
+            insightsDiv.innerHTML = insights;
+        }
+        
+        function updateCombinationAnalysis(currentYearData, priorYearData, year, latestData) {
+            const tbody = document.getElementById('analysisCombinationTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            const combinations = {};
+            
+            [...currentYearData, ...priorYearData].forEach(row => {
+                const key = `${row.meter_type}_${row.product_group}`;
+                if (!combinations[key]) {
+                    combinations[key] = {
+                        meterType: row.meter_type,
+                        productGroup: row.product_group
+                    };
+                }
+            });
+            
+            const combKeys = Object.keys(combinations).sort();
+            const combData = {};
+            
+            combKeys.forEach(key => {
+                const { meterType, productGroup } = combinations[key];
+                
+                const currentData = currentYearData.filter(d => d.meter_type === meterType && d.product_group === productGroup);
+                const pyData = priorYearData.filter(d => d.meter_type === meterType && d.product_group === productGroup);
+                
+                const row = tbody.insertRow();
+                const meterCell = row.insertCell();
+                meterCell.textContent = meterType || 'Unknown';
+                
+                const productCell = row.insertCell();
+                productCell.textContent = productGroup || 'Unknown';
+                
+                let ytdNetCurrent = 0;
+                let ytdNetPY = 0;
+                const monthlyNet = [];
+                
+                for (let m = 1; m <= 12; m++) {
+                    const monthData = currentData.filter(d => Number(d.month) === m);
+                    const gains = monthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    const losses = monthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                    const net = gains - losses;
+                    
+                    const pyMonthData = pyData.filter(d => Number(d.month) === m);
+                    const pyGains = pyMonthData.reduce((sum, d) => sum + (Number(d.gains) || 0), 0);
+                    const pyLosses = pyMonthData.reduce((sum, d) => sum + (Number(d.losses) || 0), 0);
+                    const pyNet = pyGains - pyLosses;
+                    
+                    const cell = row.insertCell();
+                    if (m <= latestData.month) {
+                        cell.textContent = formatNumber(net);
+                        cell.className = getVarianceClass(net);
+                        ytdNetCurrent += net;
+                        ytdNetPY += pyNet;
+                        monthlyNet.push(net);
+                    } else {
+                        cell.textContent = '--';
+                        monthlyNet.push(null);
+                    }
+                }
+                
+                const ytdCell = row.insertCell();
+                ytdCell.textContent = formatNumber(ytdNetCurrent);
+                ytdCell.className = getVarianceClass(ytdNetCurrent);
+                
+                const yoyChange = ytdNetCurrent - ytdNetPY;
+                const yoyChangePercent = ytdNetPY !== 0 ? (yoyChange / ytdNetPY) * 100 : 0;
+                const yoyCell = row.insertCell();
+                yoyCell.innerHTML = `${formatNumber(yoyChange)} (${formatPercentage(yoyChangePercent)})`;
+                yoyCell.className = getVarianceClass(yoyChange);
+                
+                combData[key] = {
+                    meterType,
+                    productGroup,
+                    ytdNetCurrent,
+                    ytdNetPY,
+                    yoyChange,
+                    yoyChangePercent,
+                    monthlyNet
+                };
+            });
+            
+            updateCombinationCharts(combData);
+            generateCombinationInsights(combData);
+        }
+        
+        function updateCombinationCharts(combData) {
+            const labels = Object.keys(combData).map(k => {
+                const d = combData[k];
+                return `${d.meterType}-${d.productGroup}`;
+            });
+            
+            const ytdValues = Object.keys(combData).map(k => combData[k].ytdNetCurrent);
+            const yoyChanges = Object.keys(combData).map(k => combData[k].yoyChange);
+            
+            if (analysisCombinationChart) analysisCombinationChart.destroy();
+            analysisCombinationChart = new Chart(document.getElementById('analysisCombinationChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'YTD Net Performance',
+                        data: ytdValues,
+                        backgroundColor: ytdValues.map(v => v >= 0 ? '#667eea' : '#ef4444')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            if (analysisYoYChart) analysisYoYChart.destroy();
+            analysisYoYChart = new Chart(document.getElementById('analysisYoYChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Year-over-Year Change',
+                        data: yoyChanges,
+                        backgroundColor: yoyChanges.map(v => v >= 0 ? '#10b981' : '#ef4444')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function generateCombinationInsights(combData) {
+            const insightsDiv = document.getElementById('combinationInsights');
+            let insights = '<h3>Combination Performance Insights</h3>';
+            
+            const combArray = Object.keys(combData).map(k => combData[k]);
+            combArray.sort((a, b) => b.ytdNetCurrent - a.ytdNetCurrent);
+            
+            const topPerformer = combArray[0];
+            const bottomPerformer = combArray[combArray.length - 1];
+            
+            const growthCombs = combArray.filter(c => c.yoyChange > 0);
+            const declineCombs = combArray.filter(c => c.yoyChange < 0);
+            
+            insights += `<p>The ${topPerformer.meterType} meter type combined with ${topPerformer.productGroup} product group represents the highest-performing customer segment, delivering ${formatNumber(topPerformer.ytdNetCurrent)} net customers year-to-date. This combination achieved a year-over-year change of ${formatNumber(topPerformer.yoyChange)} customers, representing a ${formatPercentage(Math.abs(topPerformer.yoyChangePercent))} ${topPerformer.yoyChange >= 0 ? 'improvement' : 'decline'} compared to the prior year period.</p>`;
+            
+            if (bottomPerformer.ytdNetCurrent < 0) {
+                insights += `<p>The ${bottomPerformer.meterType}-${bottomPerformer.productGroup} combination requires immediate strategic intervention, currently operating at a net customer loss of ${formatNumber(Math.abs(bottomPerformer.ytdNetCurrent))} customers. A comprehensive analysis of churn drivers, pricing competitiveness, and service delivery within this segment is essential to reverse the negative trajectory.</p>`;
+            }
+            
+            if (growthCombs.length > 0) {
+                const strongestGrowth = growthCombs.reduce((max, c) => c.yoyChangePercent > max.yoyChangePercent ? c : max, growthCombs[0]);
+                insights += `<p>Year-over-year momentum analysis identifies the ${strongestGrowth.meterType}-${strongestGrowth.productGroup} segment as demonstrating the most significant growth acceleration, with a ${formatPercentage(strongestGrowth.yoyChangePercent)} improvement representing ${formatNumber(strongestGrowth.yoyChange)} additional net customers. This performance trajectory suggests effective product-market fit and operational execution that should be studied for replication across other segments.</p>`;
+            }
+            
+            if (declineCombs.length > 0 && growthCombs.length > 0) {
+                insights += `<p>Portfolio optimization opportunities exist across the customer base, with ${growthCombs.length} combinations showing positive year-over-year growth while ${declineCombs.length} combinations exhibit declining net performance. Resource allocation and strategic focus should prioritize stabilizing underperforming segments while scaling successful approaches from high-growth combinations.</p>`;
+            }
+            
+            insightsDiv.innerHTML = insights;
+        }
+    </script>
+</body>
+</html>
