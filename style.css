@@ -1,0 +1,89 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f4f4f8;
+  margin: 0;
+  padding: 0;
+}
+.dashboard-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tab-navigation {
+  display: flex;
+  background: #2d3748;
+  border-bottom: 3px solid #4a5568;
+}
+.tab-button {
+  background: none;
+  border: none;
+  color: #cbd5e0;
+  padding: 15px 25px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.3s;
+}
+.tab-button:hover {
+  background: #374151;
+  color: #fff;
+}
+.tab-button.active {
+  background: #4a5568;
+  color: #fff;
+  border-bottom: 3px solid #10b981;
+}
+.tab-content {
+  display: none;
+  padding: 20px;
+}
+.tab-content.active {
+  display: block;
+}
+.upload-area {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.file-status {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.status-success {
+  color: #10b981;
+}
+.status-error {
+  color: #ef4444;
+}
+.status-loading {
+  color: #f59e0b;
+}
+
+/*
+ * Metrics layout
+ * Add spacing and simple typography for metric sections inserted by the JS.  The
+ * dashboard displays several groups of metrics (overview, monthly, YTD) after
+ * a file is uploaded.  These styles ensure the content is readable without
+ * overriding the existing theme.
+ */
+.metric-section {
+  margin-top: 15px;
+  line-height: 1.4;
+}
+
+.metric-section p {
+  margin: 4px 0;
+  color: #2d3748;
+}
+
+.metric-section .positive {
+  color: #10b981; /* green for positive variances */
+}
+
+.metric-section .negative {
+  color: #ef4444; /* red for negative variances */
+}
