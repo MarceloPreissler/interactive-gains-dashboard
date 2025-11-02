@@ -64,12 +64,14 @@ def get_db_connection():
         raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
 
     # Connection string for SQL Server
+    # Using ODBC Driver 18 with TrustServerCertificate for internal servers
     conn_str = (
-        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+        f'DRIVER={{ODBC Driver 18 for SQL Server}};'
         f'SERVER={server};'
         f'DATABASE={database};'
         f'UID={username};'
-        f'PWD={password}'
+        f'PWD={password};'
+        f'TrustServerCertificate=yes;'
     )
 
     return pyodbc.connect(conn_str)

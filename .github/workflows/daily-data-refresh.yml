@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: claude/incorporate-external-code-011CUjUJTrWnK7FBMtAGN3a6
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,12 +22,23 @@ jobs:
 
       - name: Install ODBC Driver for SQL Server
         run: |
+          # Install prerequisites
           sudo apt-get update
-          sudo apt-get install -y curl apt-transport-https gnupg
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get install -y curl gnupg2 apt-transport-https
+
+          # Add Microsoft repository key
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+
+          # Add repository for Ubuntu 22.04 (more stable than 24.04 for ODBC drivers)
+          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+
+          # Update and install ODBC driver
           sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+
+          # Install additional tools (optional but helpful)
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18
+          echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
 
       - name: Install Python dependencies
         run: |
@@ -54,5 +63,5 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Auto-update dashboard data - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            git push -u origin claude/incorporate-external-code-011CUjUJTrWnK7FBMtAGN3a6
+            git push
           fi
