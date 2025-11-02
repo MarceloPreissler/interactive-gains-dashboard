@@ -77,6 +77,36 @@ function parseExcel(arrayBuffer) {
   return XLSX.utils.sheet_to_json(sheet);
 }
 
+// AUTO-LOAD DATA ON PAGE LOAD
+document.addEventListener('DOMContentLoaded', () => {
+  loadDataFromRepo();
+});
+
+async function loadDataFromRepo() {
+  try {
+    fileStatus.textContent = 'Loading latest data...';
+    fileStatus.className = 'file-status status-loading';
+
+    const response = await fetch('data/dashboard_data.csv');
+    if (!response.ok) {
+      throw new Error('Data file not found. Please upload a file manually.');
+    }
+
+    const csvText = await response.text();
+    const data = parseCSV(csvText);
+
+    window.dashboardData = data;
+    updateMetrics(data);
+
+    fileStatus.textContent = `Auto-loaded latest data (${data.length} rows, last updated: ${new Date().toLocaleDateString()})`;
+    fileStatus.className = 'file-status status-success';
+  } catch (error) {
+    fileStatus.textContent = 'No data file found. Please upload a CSV file to view metrics.';
+    fileStatus.className = 'file-status status-error';
+    console.warn('Auto-load failed:', error.message);
+  }
+}
+
 // Compute and display metrics across tabs based on uploaded data
 function updateMetrics(data) {
   // Validate that data exists and is an array

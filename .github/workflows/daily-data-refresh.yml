@@ -1,0 +1,58 @@
+name: Daily Data Refresh
+
+on:
+  schedule:
+    # Run at 7:00 AM Central Time (12:00 PM UTC during CST, 1:00 PM UTC during CDT)
+    # Using 12:00 UTC which is 7:00 AM CST (adjust if needed during CDT)
+    - cron: '0 13 * * *'  # 7 AM CDT (UTC-5)
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: claude/incorporate-external-code-011CUjUJTrWnK7FBMtAGN3a6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ODBC Driver for SQL Server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl apt-transport-https gnupg
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run data fetch script
+        env:
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          python fetch_data.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/dashboard_data.csv
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-update dashboard data - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            git push -u origin claude/incorporate-external-code-011CUjUJTrWnK7FBMtAGN3a6
+          fi
