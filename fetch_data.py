@@ -63,16 +63,35 @@ def get_db_connection():
                    if not os.environ.get(var)]
         raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
 
+    # Auto-detect available ODBC driver version
+    available_drivers = pyodbc.drivers()
+    driver_name = None
+
+    # Prefer newer drivers
+    for preferred_driver in ['ODBC Driver 18 for SQL Server', 'ODBC Driver 17 for SQL Server',
+                              'ODBC Driver 13 for SQL Server', 'SQL Server']:
+        if preferred_driver in available_drivers:
+            driver_name = preferred_driver
+            break
+
+    if not driver_name:
+        raise Exception(f"No SQL Server ODBC driver found. Available drivers: {', '.join(available_drivers)}")
+
+    print(f"Using driver: {driver_name}")
+
     # Connection string for SQL Server
-    # Using ODBC Driver 18 with TrustServerCertificate for internal servers
+    # Using TrustServerCertificate for internal servers (required for Driver 18+)
     conn_str = (
-        f'DRIVER={{ODBC Driver 18 for SQL Server}};'
+        f'DRIVER={{{driver_name}}};'
         f'SERVER={server};'
         f'DATABASE={database};'
         f'UID={username};'
         f'PWD={password};'
-        f'TrustServerCertificate=yes;'
     )
+
+    # Add TrustServerCertificate for Driver 18 (required for self-signed certs)
+    if '18' in driver_name:
+        conn_str += 'TrustServerCertificate=yes;'
 
     return pyodbc.connect(conn_str)
 
