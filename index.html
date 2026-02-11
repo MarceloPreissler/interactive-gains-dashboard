@@ -754,10 +754,10 @@
             <div class="proration-toggle-container">
                 <span class="proration-label">Pro-rate Plan & Prior Year:</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="prorationToggle" onchange="toggleProration()">
+                    <input type="checkbox" id="prorationToggle" onchange="toggleProration()" checked>
                     <span class="toggle-slider"></span>
                 </label>
-                <span class="toggle-status" id="toggleStatus">Full Month</span>
+                <span class="toggle-status active" id="toggleStatus">Pro-rated</span>
             </div>
             
             <div class="chart-grid">
@@ -1229,7 +1229,7 @@
 
     <script>
         let dashboardData = null;
-        let prorationEnabled = false;
+        let prorationEnabled = true;
         let lossesProrationEnabled = false;
         let ytdProrationEnabled = false;
         let monthlyProrationEnabled = false;
