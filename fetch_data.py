@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
 SQL Query Executor for TXU Mass Portfolio Gains Dashboard
-Runs daily to fetch latest data and generate CSV for dashboard consumption
+Runs daily to fetch latest data and generate CSV for dashboard consumption.
+
+Pipeline:
+  1. Execute usp_Insert_Mass_Plan_Proj_Actual to refresh the source table
+     (pulls plan from TXU_Mass_Plan_2026, actuals from TransFact_Daily_Historical)
+  2. Query the refreshed table and aggregate for dashboard CSV
 """
 
 import os
@@ -10,7 +15,11 @@ import pyodbc
 import pandas as pd
 from datetime import datetime
 
-# SQL Query
+# Stored procedure that refreshes Skywalker.dbo.Mass_Plan_Proj_Actual
+# Sources: Skywalker.dbo.TXU_Mass_Plan_2026 (plan) + Falcon9.dbo.TransFact_Daily_Historical (actuals)
+REFRESH_SP = "EXEC dbo.usp_Insert_Mass_Plan_Proj_Actual"
+
+# SQL Query - reads from the table after SP refresh
 SQL_QUERY = """
 SELECT LEFT(p.YEARMONTH,4) AS year
       ,RIGHT(p.YEARMONTH,2) AS month
@@ -99,7 +108,16 @@ def fetch_data_to_csv(output_file='data/dashboard_data.csv'):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Connecting to database...")
         conn = get_db_connection()
 
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Executing query...")
+        # Step 1: Refresh the source table via stored procedure
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Executing SP to refresh Mass_Plan_Proj_Actual...")
+        cursor = conn.cursor()
+        cursor.execute(REFRESH_SP)
+        cursor.commit()
+        cursor.close()
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SP completed - table refreshed")
+
+        # Step 2: Query the refreshed table for dashboard CSV
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Executing dashboard query...")
         df = pd.read_sql(SQL_QUERY, conn)
 
         conn.close()
