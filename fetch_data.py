@@ -135,4 +135,4 @@ if __name__ == '__main__':
     if not success:
         sys.exit(1)
 
-    print(f"\n✓ Data refresh completed successfully at {datetime.now().strftime('%Y-%m-%d %H:%M:%S CT')}")
+    print(f"\nData refresh completed successfully at {datetime.now().strftime('%Y-%m-%d %H:%M:%S CT')}")
