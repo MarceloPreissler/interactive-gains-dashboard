@@ -2,10 +2,9 @@ name: Daily Data Refresh
 
 on:
   schedule:
-    # Run at 7:00 AM Central Time (12:00 PM UTC during CST, 1:00 PM UTC during CDT)
-    # Using 12:00 UTC which is 7:00 AM CST (adjust if needed during CDT)
-    - cron: '0 13 * * *'  # 7 AM CDT (UTC-5)
-  workflow_dispatch:  # Allow manual trigger for testing
+    - cron: '0 13 * * *'   # 7:00 AM CDT (primary)
+    - cron: '0 15 * * *'   # 9:00 AM CDT (catch-up if primary missed or CSV unchanged)
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   refresh-data:
@@ -14,38 +13,50 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need history to check last commit date
+
+      - name: Check if refresh already ran today (catch-up gate)
+        id: check
+        run: |
+          LAST_CSV_COMMIT=$(git log -1 --format='%ai' -- data/dashboard_data.csv | cut -d' ' -f1)
+          TODAY=$(date -u +'%Y-%m-%d')
+          echo "last_csv_date=$LAST_CSV_COMMIT" >> $GITHUB_OUTPUT
+          echo "today=$TODAY" >> $GITHUB_OUTPUT
+          if [ "$LAST_CSV_COMMIT" = "$TODAY" ] && [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Catch-up run: CSV already updated today ($LAST_CSV_COMMIT). Skipping."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Proceeding with refresh (last CSV update: $LAST_CSV_COMMIT)"
+          fi
 
       - name: Set up Python
+        if: steps.check.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install ODBC Driver for SQL Server
+        if: steps.check.outputs.skip != 'true'
         run: |
-          # Install prerequisites
           sudo apt-get update
           sudo apt-get install -y curl gnupg2 apt-transport-https
-
-          # Add Microsoft repository key
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
-
-          # Add repository for Ubuntu 22.04 (more stable than 24.04 for ODBC drivers)
           curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-
-          # Update and install ODBC driver
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
-
-          # Install additional tools (optional but helpful)
           sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18
           echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
 
       - name: Install Python dependencies
+        if: steps.check.outputs.skip != 'true'
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run data fetch script
+        if: steps.check.outputs.skip != 'true'
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
@@ -55,6 +66,7 @@ jobs:
           python fetch_data.py
 
       - name: Commit and push changes
+        if: steps.check.outputs.skip != 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
