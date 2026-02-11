@@ -2929,6 +2929,24 @@
             
             insightsDiv.innerHTML = insights;
         }
+
+        // AUTO-LOAD DATA FROM REPO ON PAGE LOAD
+        (async function autoLoadData() {
+            try {
+                showStatus('Loading latest data...', 'loading');
+                const response = await fetch('data/dashboard_data.csv');
+                if (!response.ok) throw new Error('Data file not found');
+                const csvText = await response.text();
+                const data = parseCSV(csvText);
+                if (data && data.length > 0) {
+                    processData(data);
+                    showStatus('Auto-loaded latest data (' + data.length + ' rows)', 'success');
+                }
+            } catch (err) {
+                showStatus('No data file found. Please upload a CSV file.', 'error');
+                console.warn('Auto-load failed:', err.message);
+            }
+        })();
     </script>
 </body>
 </html>
