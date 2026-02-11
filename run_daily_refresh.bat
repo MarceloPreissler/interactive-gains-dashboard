@@ -20,11 +20,10 @@ set DB_PASSWORD=Gremio.84
 
 REM Run the Python script
 echo [1/3] Fetching data from SQL Server...
-python fetch_data.py
+D:\Python311\python.exe fetch_data.py
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Data fetch failed!
     echo Check the error message above.
-    pause
     exit /b 1
 )
 
@@ -38,7 +37,6 @@ if %ERRORLEVEL% EQU 0 (
     git commit -m "Auto-update dashboard data - %date% %time%"
     if %ERRORLEVEL% NEQ 0 (
         echo ERROR: Git commit failed!
-        pause
         exit /b 1
     )
 )
@@ -49,7 +47,6 @@ git push
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Git push failed!
     echo Check your network connection and GitHub credentials.
-    pause
     exit /b 1
 )
 
