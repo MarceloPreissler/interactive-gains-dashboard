@@ -110,6 +110,11 @@ def main():
             log(f"ERROR: Git push failed (exit {rc})", lf)
             # Don't log push output to avoid leaking token in error messages
             return 1
+        # Update tracking ref so origin/main stays in sync
+        run_cmd(
+            ["git", "update-ref", "refs/remotes/origin/main", "HEAD"],
+            cwd=REPO_DIR,
+        )
         log("[3/3] Pushed to GitHub", lf)
 
         log("SUCCESS - Dashboard data updated", lf)
