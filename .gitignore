@@ -1,0 +1,11 @@
+# Credentials - never commit
+.gh_token
+*.env
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+.DS_Store
